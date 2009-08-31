@@ -29,6 +29,10 @@ MAX_GEOCODE_ACCURACY = 9
 GEOCODE_URL_TEMPLATE = ('http://maps.google.com/maps/geo?q=%(address)s'
                         '&output=json&oe=utf8&sensor=false&key=%(maps_key)s')
 
+DELAY_INIT = 0  # Initial delay in between geocode attempts.
+DELAY_INCREMENT = 0.1  # Add 100ms to delay every time we get a 620 error.
+DELAY_DECAY = 0.01  # Lower the delay by 1% for each successful geocode.
+
 
 class GoogleGeocoderStatus:
   # No errors occurred; the address was successfully parsed and its geocode
@@ -65,11 +69,10 @@ class GoogleGeocoderStatus:
 class GoogleMapsService(GeocoderService):
   def __init__(self, maps_key):
     self._maps_key = maps_key
-    self._backoff_seconds = 0
+    self._delay = DELAY_INIT
   
   def geocode_address(self, address):
-    if self._backoff_seconds:
-      time.sleep(self._backoff_seconds)
+    time.sleep(self._delay)
     
     geocode_url = (GEOCODE_URL_TEMPLATE %
                    dict(address=urllib.quote_plus(address),
@@ -86,14 +89,15 @@ class GoogleMapsService(GeocoderService):
   
     geocode_status = response_obj['Status']['code']
     if geocode_status == GoogleGeocoderStatus.SUCCESS:
-      self._backoff_seconds = 0
+      #self._delay = 0
+      self._delay = self._delay * (1 - DELAY_DECAY)
       placemark = response_obj['Placemark'][0]
       return Result(lat=placemark['Point']['coordinates'][1],
                     lon=placemark['Point']['coordinates'][0],
                     meta=dict(accuracy=placemark['AddressDetails']['Accuracy']))
     elif geocode_status == GoogleGeocoderStatus.TOO_MANY_QUERIES:
-      self._backoff_seconds = (1 if not self._backoff_seconds
-                               else self._backoff_seconds * 2)
+      #self._delay = (1 if not self._delay else self._delay * 2)
+      self._delay += DELAY_INCREMENT
       raise GeocodeAgainError()
     elif geocode_status == GoogleGeocoderStatus.UNKNOWN_ADDRESS:
       raise NotFoundError()

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A multi-threded batch geocoder that uses an arbitrary input and output
+"""A multi-threaded batch geocoder that uses an arbitrary input and output
 stream, geocoding service, and optional record cache.
 """
 
@@ -136,13 +136,13 @@ class BatchGeocoder(object):
       except Queue.Empty:
         self.all_geocoded = True
         return
-      except geocoder.NotFoundError:
+      except service.NotFoundError:
         record.status = data.Status.NOT_FOUND
         self.geocoded_failed += 1
         self._write_queue.put(record)
         self._geocode_queue.task_done()
         self._on_progress(self)
-      except geocoder.GeocodeAgainError:
+      except service.GeocodeAgainError:
         self._geocode_queue.put(record)
         self._geocode_queue.task_done()
       # TODO(romannurik): handle other possible exceptions.
