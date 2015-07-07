@@ -1,0 +1,1 @@
+Customizable, multi-threaded batch geocoder written in Python, with adapters for CSV input and output and the Google Maps API geocoder service.
